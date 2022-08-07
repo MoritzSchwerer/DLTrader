@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+
+from binance_historical_data import BinanceDataDumper
+import os
+import glob
+from argparse import ArgumentParser
+
+def combine(directory, args):
+    import pandas as pd
+    import shutil
+    os.chdir(directory)
+    extension = "csv"
+    all_files = [i for i in glob.glob('*.{}'.format(extension))]
+    all_files.sort()
+    df = pd.concat([ pd.read_csv(file, header=None) for file in all_files ])
+    df.columns=["datetime", "Open", "High", "Low", "Close", "Volume", "close_time",
+                      "qav", "num_trades", "taker_base_vol", "taker_quote_vol", "ignore"]
+    df = df[['datetime', 'Open', 'High', 'Low', 'Close', 'Volume']]
+    df = df.set_index("datetime")
+    df.index=pd.to_datetime(df.index, unit='ms')
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    os.chdir(dir_path)
+    df.to_csv( f"./data/{args['ticker']}_{args['frequency']}.csv" )
+    shutil.rmtree('./spot')
+
+def construct_dir_name(directory):
+    return "./spot/monthly/"+directory[10:]
+
+def download_and_save(args):
+    dumper = BinanceDataDumper(
+        path_dir_where_to_dump=".",
+        data_type="klines",
+        data_frequency=args["frequency"]
+    )
+
+    if args['pairs']:
+        pairs = dumper.get_list_all_trading_pairs()
+        for pair in pairs:
+            print(pair)
+    if args['search'] != None:
+        pairs = dumper.get_list_all_trading_pairs()
+        if args['search'] in pairs:
+            print(f"{args['search']} exists.")
+        else:
+            print(f"{args['search']} doesn't exist")
+    else:
+        dumper.dump_data(
+            tickers = args["ticker"],
+            is_to_update_existing=False,
+        )
+        directory = dumper.get_local_dir_to_data(
+            args["ticker"],
+            args["frequency"]
+        )
+        combine(construct_dir_name(directory), args)
+
+def get_args():
+    parser = ArgumentParser()
+    parser.add_argument("-t", "--ticker", dest="ticker",
+                          help="the ticker to fetch data for", default="BTCUSDT")
+    parser.add_argument("-f", "--frequency", dest="frequency",
+                        help="the data collection frequency", default="1d")
+    parser.add_argument("-s", "--search", dest="search",
+                        help="search for ticker", default=None)
+    parser.add_argument("--pairs", action='store_true',
+                        help="get all trading pairs")
+    args = vars(parser.parse_args())
+    return args
+
+
+def main():
+    args = get_args()
+    download_and_save(args)
+
+if __name__ == "__main__":
+    main()
