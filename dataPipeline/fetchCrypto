@@ -37,7 +37,7 @@ def download_and_save(args):
         pairs = dumper.get_list_all_trading_pairs()
         for pair in pairs:
             print(pair)
-    if args['search'] != None:
+    elif args['search'] != None:
         pairs = dumper.get_list_all_trading_pairs()
         if args['search'] in pairs:
             print(f"{args['search']} exists.")
